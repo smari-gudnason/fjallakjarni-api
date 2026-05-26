@@ -1,0 +1,16 @@
+{
+  "name": "fjallakjarni-api",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "backend.js",
+  "scripts": {
+    "start": "node backend.js"
+  },
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
