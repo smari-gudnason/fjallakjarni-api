@@ -3,17 +3,65 @@ const axios = require('axios');
 
 const app = express();
 
-// --- ONE TIME FETCH ---
+// --- CACHE ---
 let cache = null;
 let hasFetched = false;
 
+// --- MAPPING ---
+const mapItem = (item) => ({
+  sku: item.ItemCode?.toLowerCase(),
+  parentSku: item.AliasItemCode?.toLowerCase() || null,
+
+  name: item.Description,
+  description: item.Description2 || null,
+
+  price: item.UnitPrice1WithTax,
+
+  totalQuantity: item.TotalQuantityInWarehouse,
+
+  warehouses: (item.Warehouses || []).map(w => ({
+    code: w.Warehouse,
+    quantity: w.QuantityInStock
+  })),
+
+  isActive: !item.Inactive,
+
+  barcode: item.Barcodes?.[0]?.Barcode || null,
+
+  brand: item.Publication?.Author || null,
+  color: item.Publication?.ISBN || null,
+  size: item.Publication?.Publisher || null
+});
+
+// --- GROUPING ---
+const groupProducts = (items) => {
+  const map = {};
+
+  for (const item of items) {
+    const key = item.parentSku || item.sku;
+
+    if (!map[key]) {
+      map[key] = {
+        sku: key,
+        brand: item.brand,
+        name: item.parentSku ? null : item.name,
+        variants: []
+      };
+    }
+
+    map[key].variants.push(item);
+  }
+
+  return Object.values(map);
+};
+
+// --- ROUTE ---
 app.get('/dk/test', async (req, res) => {
   try {
-    // 👉 aðeins EINU sinni kallað á DK
     if (!hasFetched) {
       console.log('Fetching from DK ONCE...');
 
-      const url = `${process.env.DK_API_URL}?inactive=false&group=197`;
+      const url = `${process.env.DK_API_URL}?$top=50`;
 
       const response = await axios.get(url, {
         headers: {
@@ -21,20 +69,26 @@ app.get('/dk/test', async (req, res) => {
         }
       });
 
-      const items = response.data.value || response.data;
+      const rawItems = response.data.value || response.data;
 
-      // ✅ filter á vöruflokka
+      // ✅ filter á group
       const allowedGroups = ['197', '401', '152'];
 
-      cache = items.filter(item =>
+      const filtered = rawItems.filter(item =>
         item.Group && allowedGroups.includes(item.Group.toString())
       );
 
+      // ✅ map
+      const mapped = filtered.map(mapItem);
+
+      // ✅ group
+      cache = groupProducts(mapped);
+
       hasFetched = true;
 
-      console.log(`Fetched ${cache.length} items after filtering`);
+      console.log(`Products ready: ${cache.length}`);
     } else {
-      console.log('Returning cached data (no DK call)');
+      console.log('Returning cached products');
     }
 
     res.json(cache);
@@ -49,9 +103,8 @@ app.get('/dk/test', async (req, res) => {
   }
 });
 
+// --- START ---
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log('Backend running on port', PORT);
 });
-``
