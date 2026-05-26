@@ -13,7 +13,7 @@ app.get('/dk/test', async (req, res) => {
     if (!hasFetched) {
       console.log('Fetching from DK ONCE...');
 
-      const url = `${process.env.DK_API_URL}?$top=50`;
+      const url = `${process.env.DK_API_URL}?group=197`;
 
       const response = await axios.get(url, {
         headers: {
